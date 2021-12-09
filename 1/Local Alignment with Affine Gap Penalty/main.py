@@ -3,7 +3,7 @@ from enum import Enum
 
 
 def local_alignment(s: str, t: str, sigma: int, epsilon: int) -> Tuple[int, str, str]:
-    lower, middle, upper, end_point_s, end_point_t = get_lower_middle_upper(
+    lower_action, middle_action, upper_action, max_score, end_point_s, end_point_t = get_lower_middle_upper(
         s, t, sigma, epsilon)
     i = end_point_t
     j = end_point_s
@@ -13,30 +13,30 @@ def local_alignment(s: str, t: str, sigma: int, epsilon: int) -> Tuple[int, str,
             break
         # backward middle
         elif action == 'M':
-            if middle[i][j][1] == 'O':
+            if middle_action[i][j] == 'O':
                 break
-            elif middle[i][j][1] == 'L':
+            elif middle_action[i][j] == 'L':
                 action = 'L'
-            elif middle[i][j][1] == 'U':
+            elif middle_action[i][j] == 'U':
                 action = 'U'
-            elif middle[i][j][1] == 'M':
+            elif middle_action[i][j] == 'M':
                 j -= 1
                 i -= 1
         # backward lower
         elif action == 'L':
-            if lower[i][j][1] == 'L':
+            if lower_action[i][j] == 'L':
                 action = 'L'
-            elif lower[i][j][1] == 'M':
+            elif lower_action[i][j] == 'M':
                 action = 'M'
             i -= 1
         # backward upper
         elif action == 'U':
-            if upper[i][j][1] == 'U':
+            if upper_action[i][j] == 'U':
                 action = 'U'
-            elif upper[i][j][1] == 'M':
+            elif upper_action[i][j] == 'M':
                 action = 'M'
             j -= 1
-    return middle[end_point_t][end_point_s][0], s[j:end_point_s], t[i:end_point_t]
+    return max_score, s[j:end_point_s], t[i:end_point_t]
 
 
 def get_lower_middle_upper(s: str, t: str, sigma: int, epsilon: int) -> Tuple[List[List[List[Union[float, str]]]]]:
@@ -48,52 +48,63 @@ def get_lower_middle_upper(s: str, t: str, sigma: int, epsilon: int) -> Tuple[Li
     middle_action = [[] for _ in range(m+1)]
     upper_score = [[] for _ in range(m+1)]
     upper_action = [[] for _ in range(m+1)]
-    # lower = [[] for _ in range(m+1)]
-    # middle = [[] for _ in range(m+1)]
-    # upper = [[] for _ in range(m+1)]
     max_score = 0
     end_point_s = 0
     end_point_t = 0
     for i in range(m + 1):
         for j in range(n + 1):
             if i == 0 and j == 0:
-                lower[0].append((0, ''))
-                upper[0].append((0, ''))
-                middle[0].append((0, ''))
+                lower_score[0].append(0)
+                lower_action[0].append('')
+                upper_score[0].append(0)
+                upper_action[0].append('')
+                middle_score[0].append(0)
+                middle_action[0].append('')
             elif i == 0 and j != 0:
-                lower[0].append((-float('inf'), ''))
-                upper[0].append((-sigma, 'M'))
-                middle[0].append((0, 'O'))
+                lower_score[0].append(-float('inf'))
+                lower_action[0].append('')
+                upper_score[0].append(-sigma)
+                upper_action[0].append('M')
+                middle_score[0].append(0)
+                middle_action[0].append('O')
             elif i != 0 and j == 0:
-                lower[i].append((-sigma, 'M'))
-                upper[i].append((-float('inf'), ''))
-                middle[i].append((0, 'O'))
+                lower_score[i].append(-sigma)
+                lower_action[i].append('M')
+                upper_score[i].append(-float('inf'))
+                upper_action[i].append('')
+                middle_score[i].append(0)
+                middle_action[i].append('O')
             else:
                 # lower
-                if middle[i-1][j][0]-sigma < lower[i-1][j][0]-epsilon:
-                    lower[i].append((lower[i-1][j][0]-epsilon, 'L'))
+                if middle_score[i-1][j]-sigma < lower_score[i-1][j]-epsilon:
+                    lower_score[i].append(lower_score[i-1][j]-epsilon)
+                    lower_action[i].append('L')
                 else:
-                    lower[i].append((middle[i-1][j][0]-sigma, 'M'))
+                    lower_score[i].append(middle_score[i-1][j]-sigma)
+                    lower_action[i].append('M')
                 # upper
-                if middle[i][j-1][0]-sigma < upper[i][j-1][0]-epsilon:
-                    upper[i].append((upper[i][j-1][0]-epsilon, 'U'))
+                if middle_score[i][j-1]-sigma < upper_score[i][j-1]-epsilon:
+                    upper_score[i].append(upper_score[i][j-1]-epsilon)
+                    upper_action[i].append('U')
                 else:
-                    upper[i].append((middle[i][j-1][0]-sigma, 'M'))
+                    upper_score[i].append(middle_score[i][j-1]-sigma)
+                    upper_action[i].append('M')
                 # middle
                 middle_max_score, action = 0, 'O'
-                if middle_max_score < middle[i-1][j-1][0] + get_score(s[j-1], t[i-1]):
-                    middle_max_score, action = middle[i-1][j -
-                                                           1][0] + get_score(s[j-1], t[i-1]), 'M'
-                if middle_max_score < lower[i][j][0]:
-                    middle_max_score, action = lower[i][j][0], 'L'
-                if middle_max_score < upper[i][j][0]:
-                    middle_max_score, action = upper[i][j][0], 'U'
-                middle[i].append((middle_max_score, action))
+                if middle_max_score < middle_score[i-1][j-1] + get_score(s[j-1], t[i-1]):
+                    middle_max_score, action = middle_score[i-1][j -
+                                                                 1] + get_score(s[j-1], t[i-1]), 'M'
+                if middle_max_score < lower_score[i][j]:
+                    middle_max_score, action = lower_score[i][j], 'L'
+                if middle_max_score < upper_score[i][j]:
+                    middle_max_score, action = upper_score[i][j], 'U'
+                middle_score[i].append(middle_max_score)
+                middle_action[i].append(action)
                 if max_score < middle_max_score:
                     max_score = middle_max_score
                     end_point_s = j
                     end_point_t = i
-    return lower, middle, upper, end_point_s, end_point_t
+    return lower_action, middle_action, upper_action, max_score, end_point_s, end_point_t
 
 
 def read_input() -> Tuple[str, str]:
@@ -191,8 +202,6 @@ s, t = read_input()
 sigma = 11  # gap opening penalty
 epsilon = 1  # gap extension penalty
 score, substring_s, substring_t = local_alignment(s, t, sigma, epsilon)
-# score, augmented_s, augmented_t = local_alignment(
-#     'PLEASANTLY', 'MEANLY', sigma, epsilon)
 print(score)
 print(substring_s)
 print(substring_t)
